@@ -15,7 +15,7 @@ public class GameConfig {
     private static final String DEFAULT_SERVER_HOST = "localhost";
     private static final int DEFAULT_SERVER_PORT = 7077;
     private static final boolean DEFAULT_USE_RELAY = true;
-    private static final String DEFAULT_RELAY_URL = "wss://betweenus-relay.onrender.com";
+    private static final String DEFAULT_RELAY_URL = "wss://betweenus-iuh6.onrender.com";
 
     private static String serverHost = DEFAULT_SERVER_HOST;
     private static int serverPort = DEFAULT_SERVER_PORT;
