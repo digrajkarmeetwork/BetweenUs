@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dir:*)",
+      "Bash(find:*)",
+      "Bash(git clone:*)",
+      "Bash(git pull:*)",
+      "Bash(git init:*)",
+      "Bash(git remote add:*)",
+      "Bash(git fetch:*)",
+      "Bash(git checkout:*)",
+      "Bash(git remote:*)",
+      "Bash(git push:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(./gradlew desktop:dist:*)",
+      "Bash(where:*)",
+      "Bash(winget install:*)",
+      "Bash(export JAVA_HOME=\"/c/Program Files/Microsoft/jdk-17.0.17.10-hotspot\":*)",
+      "Bash(export PATH=\"$JAVA_HOME/bin:$PATH\")"
+    ]
+  }
+}

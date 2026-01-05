@@ -51,7 +51,7 @@ project(":desktop") {
         api "com.badlogicgames.gdx:gdx-controllers-desktop:$gdxVersion"
         api "com.badlogicgames.gdx:gdx-controllers-platform:$gdxVersion:natives-desktop"
         
-        compile "com.badlogicgames.gdx:gdx-tools:$gdxVersion"
+        implementation "com.badlogicgames.gdx:gdx-tools:$gdxVersion"
         
     }
 }
@@ -69,23 +69,5 @@ project(":core") {
 
         // WebSocket client for relay server connection
         api "org.java-websocket:Java-WebSocket:1.5.4"
-    }
-}
-
-// Fat JAR task for easy distribution
-project(":desktop") {
-    apply plugin: "application"
-    mainClassName = "com.mmog.desktop.DesktopLauncher"
-
-    task dist(type: Jar) {
-        duplicatesStrategy = DuplicatesStrategy.EXCLUDE
-        manifest {
-            attributes 'Main-Class': mainClassName
-        }
-        from {
-            configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
-        }
-        with jar
-        archiveBaseName = 'BetweenUs'
     }
 }
