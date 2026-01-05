@@ -36,19 +36,59 @@ public class Client
 	private static Player player;
 	private static ArrayList<Player> players;
 	static float waitTime = 0;
-	
+
+	// Relay mode flag
+	private static boolean useRelayMode = false;
+	private static boolean relayConnected = false;
+
 	public Client() throws IOException {
 		players = new ArrayList<Player>();
 		initSockets();
 	}
 
 	public static void initSockets() {
-		port = 7077;
+		// Load configuration
+		GameConfig.loadConfig();
+		useRelayMode = GameConfig.useRelay();
+		port = GameConfig.getServerPort();
+
+		if (useRelayMode) {
+			// Connect to relay server
+			System.out.println("Using relay mode: " + GameConfig.getRelayUrl());
+			RelayClient.connect(GameConfig.getRelayUrl(), (connected) -> {
+				relayConnected = connected;
+				if (connected) {
+					System.out.println("Connected to relay server!");
+					// Set up game data callback
+					RelayClient.getInstance().setGameDataCallback(data -> {
+						try {
+							parseCommand(data);
+						} catch (IOException e) {
+							e.printStackTrace();
+						}
+					});
+				} else {
+					System.out.println("Failed to connect to relay, falling back to direct mode");
+					useRelayMode = false;
+					initDirectSockets();
+				}
+			});
+		} else {
+			initDirectSockets();
+		}
+	}
+
+	/**
+	 * Initialize direct UDP sockets (original behavior)
+	 */
+	private static void initDirectSockets() {
 		socket = null;
-		// Create a Datagram Socket...
 		try
-		{ 
-			address = InetAddress.getByName("72.137.66.20");
+		{
+			// Use configurable server address
+			String serverHost = GameConfig.getServerHost();
+			address = InetAddress.getByName(serverHost);
+			System.out.println("Connecting to server: " + serverHost + ":" + port);
 
 			socket = new DatagramSocket(8000);
 		}
@@ -61,6 +101,25 @@ public class Client
 		UDPEchoReader reader = new UDPEchoReader(socket);
 		reader.setDaemon(true);
 		reader.start();
+	}
+
+	/**
+	 * Check if using relay mode
+	 */
+	public static boolean isUsingRelay() {
+		return useRelayMode && relayConnected;
+	}
+
+	/**
+	 * Send data - routes through relay or direct UDP based on mode
+	 */
+	private static void sendData(String data) throws IOException {
+		if (isUsingRelay()) {
+			RelayClient.getInstance().sendGameData(data);
+		} else {
+			DatagramPacket packet = new DatagramPacket(data.getBytes(), data.getBytes().length, address, port);
+			socket.send(packet);
+		}
 	}
 
 	public static ArrayList<Player> getPlayers(){
@@ -132,16 +191,17 @@ public class Client
 
 
 	public static void connectClientToServer() throws IOException {
-
 		//command int for connection request.
 		String input = "0" + ",";
 		input += player.getPlayerName() + ",";
 		input += player.connectedRoomName;
 
-		// send datagram packet to the server
-		DatagramPacket datagramPacket = new DatagramPacket
-				(input.getBytes(), input.getBytes().length, address, port);
-		socket.send(datagramPacket);
+		// If using relay, join the room first
+		if (isUsingRelay()) {
+			RelayClient.getInstance().joinRoom(player.connectedRoomName, player.getPlayerName());
+		}
+
+		sendData(input);
 	}
 
 	public static void sendUpdate(float x, float y, boolean isFlipped, boolean isDead, boolean isIdle, int hatID, boolean hatIsFlipped) throws Exception
@@ -150,83 +210,76 @@ public class Client
 		toSend += 1 + ",";
 		toSend += player.getPlayerName() + ",";
 		toSend += player.connectedRoomName + ",";
-		toSend +=  x +","; 
+		toSend +=  x +",";
 		toSend +=  y +",";
-		toSend +=  isFlipped + ","; 
-		toSend +=  isDead + ",";  
+		toSend +=  isFlipped + ",";
+		toSend +=  isDead + ",";
 		toSend +=  isIdle + ",";
 		toSend +=  hatID + ",";
 		toSend +=  hatIsFlipped;
 
-		DatagramPacket datagramPacket = new DatagramPacket(toSend.getBytes(), toSend.getBytes().length, address, 7077);	     
-		socket.send(datagramPacket);	      	      
+		sendData(toSend);
 	}
 	
 	public static void sendLightsCommand() throws IOException{
 		String toSend = "";
 		toSend += 11 + ",";
 		toSend += player.connectedRoomName;
-		
-		DatagramPacket datagramPacket = new DatagramPacket(toSend.getBytes(), toSend.getBytes().length, address, 7077);	     
-		socket.send(datagramPacket);
+
+		sendData(toSend);
 	}
-	
+
 	public static void sendLightsFixed() throws IOException{
 		String toSend = "";
 		toSend += 15 + ",";
 		toSend += player.connectedRoomName;
-		
-		DatagramPacket datagramPacket = new DatagramPacket(toSend.getBytes(), toSend.getBytes().length, address, 7077);	     
-		socket.send(datagramPacket);
+
+		sendData(toSend);
 	}
-	
+
 	public static void sendTriggerMeeting() throws IOException{
 		String toSend = "";
 		toSend += 18 + ",";
 		toSend += player.connectedRoomName;
-		
-		DatagramPacket datagramPacket = new DatagramPacket(toSend.getBytes(), toSend.getBytes().length, address, 7077);	     
-		socket.send(datagramPacket);
-	}	
-	
+
+		sendData(toSend);
+	}
+
 	public static void sendInVent() throws IOException{
 		String toSend = "";
 		toSend += 12 + ",";
 		toSend += player.connectedRoomName +",";
 		toSend += player.getPlayerName();
-				
-		DatagramPacket datagramPacket = new DatagramPacket(toSend.getBytes(), toSend.getBytes().length, address, 7077);	     
-		socket.send(datagramPacket);
+
+		sendData(toSend);
 	}
-	
+
 	public static void sendVote(boolean voted, String playerName) throws IOException{
 		String toSend = "";
 		toSend += 16 + ",";
 		toSend += player.connectedRoomName +",";
 		toSend += voted + ",";
 		toSend += playerName;
-				
-		DatagramPacket datagramPacket = new DatagramPacket(toSend.getBytes(), toSend.getBytes().length, address, 7077);	     
-		socket.send(datagramPacket);
+
+		sendData(toSend);
 	}
-	
+
 	public static void sendOutVent(float x, float y, boolean isFlipped, boolean isDead, boolean isIdle, int hatID, boolean hatIsFlipped) throws IOException{
 		String toSend = "";
 		toSend += 13 + ",";
 		toSend += player.connectedRoomName + ",";
 		toSend += player.getPlayerName() + ",";
-		toSend +=  x +","; 
+		toSend +=  x +",";
 		toSend +=  y +",";
-		toSend +=  isFlipped + ","; 
-		toSend +=  isDead + ",";  
+		toSend +=  isFlipped + ",";
+		toSend +=  isDead + ",";
 		toSend +=  isIdle + ",";
 		toSend += hatID + ",";
 		toSend += hatIsFlipped;
-				
-		DatagramPacket datagramPacket = new DatagramPacket(toSend.getBytes(), toSend.getBytes().length, address, 7077);	     
-		socket.send(datagramPacket);
+
+		sendData(toSend);
 	}
-	
+
 	public static void sendCreateRoomCommand(String roomName, float numCrew, float numImp) throws IOException {
 		String toSend = "";
 		toSend += 5 + ",";
@@ -235,8 +288,12 @@ public class Client
 		toSend +=  numCrew +",";
 		toSend +=  numImp;
 
-		DatagramPacket datagramPacket = new DatagramPacket(toSend.getBytes(), toSend.getBytes().length, address, 7077);	     
-		socket.send(datagramPacket);
+		// If using relay, host the room first
+		if (isUsingRelay()) {
+			RelayClient.getInstance().hostRoom(roomName);
+		}
+
+		sendData(toSend);
 	}
 
 	public static void sendReactorTaskCompleted() throws IOException {
@@ -244,88 +301,78 @@ public class Client
 		toSend += 9 + ",";
 		toSend += Client.getPlayer().connectedRoomName;
 
-		DatagramPacket datagramPacket = new DatagramPacket(toSend.getBytes(), toSend.getBytes().length, address, 7077);	     
-		socket.send(datagramPacket);
-
+		sendData(toSend);
 	}
-	
+
 	public static void sendGetVotes() throws IOException {
 		String toSend = "";
 		toSend += 17 + ",";
 		toSend += Client.getPlayer().connectedRoomName;
 
-		DatagramPacket datagramPacket = new DatagramPacket(toSend.getBytes(), toSend.getBytes().length, address, 7077);	     
-		socket.send(datagramPacket);
+		sendData(toSend);
 	}
-	
+
 	public static void sendPlayerKilled(String playerName) throws IOException {
 		String toSend = "";
 		toSend += 10 + ",";
 		toSend += getPlayer().connectedRoomName + ",";
 		toSend += playerName;
 
-		DatagramPacket datagramPacket = new DatagramPacket(toSend.getBytes(), toSend.getBytes().length, address, 7077);	     
-		socket.send(datagramPacket);
+		sendData(toSend);
 	}
-	
+
 	public static void sendReactorCommand() throws IOException{
 		String toSend = "";
 		toSend += 14 + ",";
 		toSend += Client.getPlayer().connectedRoomName + ",";
 		toSend += getPlayer().getPlayerName();
 
-		DatagramPacket datagramPacket = new DatagramPacket(toSend.getBytes(), toSend.getBytes().length, address, 7077);	     
-		socket.send(datagramPacket);
+		sendData(toSend);
 	}
-	
+
 	public static void sendStartCommand() throws IOException {
 		String toSend = "";
 		toSend += 3 + ",";
 		toSend += Client.getPlayer().connectedRoomName +",";
 
-		DatagramPacket datagramPacket = new DatagramPacket(toSend.getBytes(), toSend.getBytes().length, address, 7077);	     
-		socket.send(datagramPacket);
+		sendData(toSend);
 	}
-	
+
 	public static void sendImpostersWin() throws IOException {
 		String toSend = "";
 		toSend += 22 + ",";
 		toSend += Client.getPlayer().connectedRoomName +",";
 
-		DatagramPacket datagramPacket = new DatagramPacket(toSend.getBytes(), toSend.getBytes().length, address, 7077);	     
-		socket.send(datagramPacket);
+		sendData(toSend);
 	}
-	
+
 	public static void sendCompletedAllTasks() throws IOException{
 		String toSend = "";
 		toSend += 20 + ",";
 		toSend += Client.getPlayer().connectedRoomName +",";
 		toSend += getPlayer().getPlayerName();
 
-		DatagramPacket datagramPacket = new DatagramPacket(toSend.getBytes(), toSend.getBytes().length, address, 7077);	     
-		socket.send(datagramPacket);
+		sendData(toSend);
 	}
 
 	public static void sendRefreshCommand() throws IOException {
 		String toSend = "";
 		toSend += 6 + ",";
 		toSend += player.getPlayerName();
-		
+
 		System.out.println(toSend);
-		DatagramPacket datagramPacket = new DatagramPacket(toSend.getBytes(), toSend.getBytes().length, address, 7077);	     
-		socket.send(datagramPacket);
+		sendData(toSend);
 	}
-	
+
 	public static void sendMessageCommand(String message) throws IOException {
 		String toSend = "";
 		toSend += 19 + ",";
 		toSend += player.getPlayerName() + ",";
 		toSend += player.connectedRoomName + ",";
 		toSend += message;
-		
+
 		System.out.println(toSend);
-		DatagramPacket datagramPacket = new DatagramPacket(toSend.getBytes(), toSend.getBytes().length, address, 7077);	     
-		socket.send(datagramPacket);
+		sendData(toSend);
 	}
 
 	public static void createPlayer(String name) {
@@ -360,17 +407,15 @@ public class Client
 		toSend += getPlayer().getPlayerName();
 
 		System.out.println(toSend);
-		
+
 		//clears all the local players information from last game
 		for(Player p: players) {
 			p.clearAll();
 		}
-		
-		DatagramPacket datagramPacket = new DatagramPacket(toSend.getBytes(), toSend.getBytes().length, address, 7077);
+
 		try {
-			socket.send(datagramPacket);
+			sendData(toSend);
 		} catch (IOException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
 		ScreenManager.getInstance().showScreen(ScreenEnum.MAIN_MENU);

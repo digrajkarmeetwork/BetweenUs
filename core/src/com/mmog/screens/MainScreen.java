@@ -170,7 +170,7 @@ public class MainScreen extends AbstractScreen{
 			@Override
 			public void clicked(InputEvent event, float x, float y) {
 				System.out.println("Heading to Settings from menu");
-				//ScreenManager.getInstance().showScreen(ScreenEnum.SETTINGS);
+				ScreenManager.getInstance().showScreen(ScreenEnum.SETTINGS);
 			}
 		});
 

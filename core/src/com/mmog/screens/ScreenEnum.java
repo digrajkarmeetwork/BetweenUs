@@ -1,7 +1,7 @@
 package com.mmog.screens;
 
 public enum ScreenEnum {
-	
+
 	MAIN_MENU {
         public AbstractScreen getScreen(Object... params) {
             return new MainScreen();
@@ -36,7 +36,12 @@ public enum ScreenEnum {
         public AbstractScreen getScreen(Object... params) {
             return new GameScreen();
         }
+    },
+    SETTINGS {
+        public AbstractScreen getScreen(Object... params) {
+            return new SettingsScreen();
+        }
     };
- 
+
     public abstract AbstractScreen getScreen(Object... params);
 }
